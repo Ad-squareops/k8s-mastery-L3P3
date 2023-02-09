@@ -74,7 +74,7 @@ pipeline {
                         sh  '''
                         cd k8s-mastery-L3P3/sa-webapp/
                         docker build -t sa-webapp .
-                        docker tag sa-frontend akdokrhub/sa-webapp:${BUILD_NUMBER}
+                        docker tag sa-webapp akdokrhub/sa-webapp:${BUILD_NUMBER}
                         docker push akdokrhub/sa-webapp:${BUILD_NUMBER}
                         '''
                         

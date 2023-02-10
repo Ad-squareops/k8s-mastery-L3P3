@@ -93,7 +93,7 @@ pipeline {
                         echo "Test code from github"
                         sh '''
                         apk add -U yq
-                        cd k8s-mastery-L3P3/HELM/sa-logic/
+                        cd k8s-mastery-L3P3/HELM/sa-webapp/
                         yq e -i '(.image.tag = "'${BUILD_NUMBER}'")' values.yaml
                         yq e -i '(.image.repository = "akdokrhub/sa-webapp")' values.yaml
                         git config --global user.email "aditya.jain@squareops.com"

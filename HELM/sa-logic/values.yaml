@@ -3,10 +3,10 @@
 # Declare variables to be passed into your templates.
 replicaCount: 1
 image:
-  repository: akdokrhub/sa-webapp
+  repository: akdokrhub/sa-logicapp
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "1"
+  tag: "2"
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""

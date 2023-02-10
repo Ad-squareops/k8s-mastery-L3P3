@@ -4,4 +4,4 @@ kind: ConfigMap
 metadata:
   name: config-demo
 data:
-  SA_LOGIC_API_URL: "http://sa1-sa-logic:5050"
+  SA_LOGIC_API_URL: "http://sa2-sa-logic:5050"

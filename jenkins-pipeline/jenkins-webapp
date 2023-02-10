@@ -23,7 +23,7 @@ pipeline {
     }
   }
   environment{
-        Docker_Cred=credentials('DockerCred')
+        Docker_Cred=credentials('adi-dockerhub')
   }
   stages {
         stage('Go to repo'){
@@ -93,8 +93,9 @@ pipeline {
                         echo "Test code from github"
                         sh '''
                         apk add -U yq
-                        cd helm/helm/front/
+                        cd k8s-mastery-L3P3/HELM/sa-logic/
                         yq e -i '(.image.tag = "'${BUILD_NUMBER}'")' values.yaml
+                        yq e -i '(.image.repository = "akdokrhub/sa-webapp")' values.yaml
                         git config --global user.email "aditya.jain@squareops.com"
                         git config --global user.name "Ad-squareops"
                         git add .

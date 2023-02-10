@@ -23,7 +23,7 @@ pipeline {
     }
   }
   environment{
-        Docker_Cred=credentials('DockerCred')
+        Docker_Cred=credentials('adi-dockerhub')
   }
   stages {
         stage('Go to repo'){
@@ -73,9 +73,9 @@ pipeline {
                         echo "Test code from github"
                         sh  '''
                         cd k8s-mastery-L3P3/sa-logic/
-                        docker build -t sa-logic .
-                        docker tag sa-logic akdokrhub/sa-logic:${BUILD_NUMBER}
-                        docker push akdokrhub/sa-logic:${BUILD_NUMBER}
+                        docker build -t sa-logicapp .
+                        docker tag sa-logicapp akdokrhub/sa-logicapp:${BUILD_NUMBER}
+                        docker push akdokrhub/sa-logicapp:${BUILD_NUMBER}
                         '''
                         
                     }
@@ -93,8 +93,9 @@ pipeline {
                         echo "Test code from github"
                         sh '''
                         apk add -U yq
-                        cd Sentiment-Analyser/HELM/sa-webapp/
+                        cd k8s-mastery-L3P3/HELM/sa-logic/
                         yq e -i '(.image.tag = "'${BUILD_NUMBER}'")' values.yaml
+                        yq e -i '(.image.repository = "akdokrhub/sa-logicapp")' values.yaml
                         git config --global user.email "aditya.jain@squareops.com"
                         git config --global user.name "Ad-squareops"
                         git add .

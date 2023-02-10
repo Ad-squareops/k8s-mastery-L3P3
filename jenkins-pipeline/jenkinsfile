@@ -1,0 +1,131 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: docker
+        spec:
+          containers:
+          - name: docker
+            image: docker
+            args: ["sleep", "10000"]
+            volumeMounts:
+             - mountPath: /var/run/docker.sock
+               name: docker-socket
+          restartPolicy: Never
+          volumes:
+          - name: docker-socket
+            hostPath:
+              path: /var/run/docker.sock
+        '''
+    }
+  }
+  environment{
+        Docker_Cred=credentials('adi-dockerhub')
+  }
+  stages {
+        stage('Go to repo'){
+            steps{
+                container('docker') {
+                    script{
+                        echo "take code from github"
+                        sh  '''
+                        apk add -U git
+                        rm -rf k8s-mastery-L3P3/
+                        git clone $Branch https://github.com/Ad-squareops/k8s-mastery-L3P3.git
+                        '''
+                        echo "Branch copied"
+                        
+                    }
+                    
+                }
+                
+            }
+        }
+        stage('Docker Version'){
+            steps{
+                container('docker') {
+                    sh 'docker --version'
+                }
+            }
+        }
+        stage('Login to DockerHub'){
+            steps{
+                container('docker') {
+                    script{
+                        echo "Login to DockerHub"
+                        sh  ''' 
+                        echo $Docker_Cred_PSW | docker login -u $Docker_Cred_USR --password-stdin
+                        '''
+                        
+                    }
+                    
+                }
+                
+            }
+        }
+        stage('Build Image and push to dockerhub'){
+            steps{
+                container('docker') {
+                    script{
+                        echo "Test code from github"
+                        sh  '''
+                        cd k8s-mastery-L3P3/sa-frontend/
+                        docker build -t sa-frontend .
+                        docker tag sa-frontend akdokrhub/sa-frontend:${BUILD_NUMBER}
+                        docker push akdokrhub/sa-frontend:${BUILD_NUMBER}
+                        cd ../sa-webapp/
+                        docker build -t sa-webapp .
+                        docker tag sa-webapp akdokrhub/sa-webapp:${BUILD_NUMBER}
+                        docker push akdokrhub/sa-webapp:${BUILD_NUMBER}
+                        cd ../sa-logic/
+                        docker build -t sa-logicapp .
+                        docker tag sa-logicapp akdokrhub/sa-logicapp:${BUILD_NUMBER}
+                        docker push akdokrhub/sa-logicapp:${BUILD_NUMBER}
+                        cd ../..
+                        '''
+                        
+                    }
+                    
+                }
+                
+            }
+            
+        }
+          stage("Update Image Tag"){
+            steps{
+                container('docker'){
+                    withCredentials([gitUsernamePassword(credentialsId: 'GitHubCred')]) {
+                    script{
+                        echo "Test code from github"
+                        sh '''
+                        apk add -U yq
+                        cd k8s-mastery-L3P3/HELM/sa-logic/
+                        yq e -i '(.image.tag = "'${BUILD_NUMBER}'")' values.yaml
+                        yq e -i '(.image.repository = "akdokrhub/sa-logic")' values.yaml
+                        cd ../sa-webapp/
+                        yq e -i '(.image.tag = "'${BUILD_NUMBER}'")' values.yaml
+                        yq e -i '(.image.repository = "akdokrhub/sa-webapp")' values.yaml
+                        cd ../sa-frontend/
+                        yq e -i '(.image.tag = "'${BUILD_NUMBER}'")' values.yaml
+                        yq e -i '(.image.repository = "akdokrhub/sa-frontend")' values.yaml
+                        git config --global user.email "aditya.jain@squareops.com"
+                        git config --global user.name "Ad-squareops"
+                        git add .
+                        git commit -m "updating image tag in values.yml"
+                        git push
+                        '''
+                        
+                    }
+                        
+                    }
+                    
+                }
+                
+            }
+              
+          }
+    }
+}

@@ -1,0 +1,344 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: shell
+    image: owasp/zap2docker-stable
+    command:
+    - sleep
+    args:
+    - 10000
+    volumeMounts:
+      - mountPath: /zap/wrk
+        name: zap
+  restartPolicy: Never
+  volumes:
+  - name: zap
+    hostPath:
+      path: /zap/wrk
+        '''
+    }
+  }
+    stages {
+        stage('install') {
+            steps{
+                container('shell') {
+                sh '''
+                #apt update -y
+                #echo 'deb http://download.opensuse.org/repositories/home:/cabelo/xUbuntu_20.04/ /' | tee /etc/apt/sources.list.d/home:cabelo.list
+                #curl -fsSL https://download.opensuse.org/repositories/home:cabelo/xUbuntu_20.04/Release.key |gpg --dearmor | tee /etc/apt/trusted.gpg.d/home_cabelo.gpg > /dev/null
+                #apt update -y
+                #apt install -y owasp-zap awscli 
+                #apt install -y openjdk-11-jdk
+                echo "Install Stage completed"
+                '''
+                }
+            }
+        }
+        
+        stage('build'){
+            steps {
+                container('shell') {
+                sh '''
+                zap.sh -cmd -quickurl http://54.213.206.47:8000 -quickprogress -quickout ~/owasp-scan-report.json
+                #zap-full-scan.py -t http://54.213.206.47:8000 -g gen.conf -r testreport.json
+                mv ~/owasp-scan-report.json ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json
+                #aws s3 cp ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json s3://adi-report/
+                medium_alert=$( grep -v "(Medium)" ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json | sed -n /Medium/p | wc -l )
+                high_alert=$( grep -v "(High)" ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json | sed -n /High/p | wc -l )
+                echo HighAlert $high_alert
+                echo MediumAlert $medium_alert
+                 '''
+                }
+            }
+        }
+        
+        stage('post') {
+        steps {
+            archiveArtifacts artifacts: '*.json', onlyIfSuccessful: true
+        }
+    }
+    }
+}
+
+
+
+
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: shell
+    image: owasp/zap2docker-stable
+    command:
+    - sleep
+    args:
+    - 10000
+    volumeMounts:
+      - mountPath: /zap/wrk
+        name: zap
+  restartPolicy: Never
+  volumes:
+  - name: zap
+    hostPath:
+      path: /zap/wrk
+        '''
+    }
+  }
+    stages {
+        stage('install') {
+            steps{
+                container('shell') {
+                sh '''
+                #apt update -y
+                #echo 'deb http://download.opensuse.org/repositories/home:/cabelo/xUbuntu_20.04/ /' | tee /etc/apt/sources.list.d/home:cabelo.list
+                #curl -fsSL https://download.opensuse.org/repositories/home:cabelo/xUbuntu_20.04/Release.key |gpg --dearmor | tee /etc/apt/trusted.gpg.d/home_cabelo.gpg > /dev/null
+                #apt update -y
+                #apt install -y owasp-zap awscli 
+                #apt install -y openjdk-11-jdk
+                echo "Install Stage completed"
+                '''
+                }
+            }
+        }
+        
+        stage('build'){
+            steps {
+                container('shell') {
+                sh '''
+                zap.sh -cmd -quickurl http://54.213.206.47:8000 -quickprogress -quickout zap_report.html
+                 '''
+                }
+            }
+        }
+        
+        stage('post') {
+        steps {
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: true, reportDir: '', reportFiles: 'zap_report.html', reportName: 'OWASP ZAP Report'])
+        }
+    }
+    }
+}
+
+
+
+not working:-
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: docker
+        spec:
+          containers:
+          - name: docker
+            image: docker
+            args: ["sleep", "10000"]
+            volumeMounts:
+             - mountPath: /var/run/docker.sock
+               name: docker-socket
+          restartPolicy: Never
+          volumes:
+          - name: docker-socket
+            hostPath:
+              path: /var/run/docker.sock
+        '''
+    }
+  }
+  
+  stages {
+        stage('install') {
+            steps{
+                container('docker') {
+                sh '''
+                #apt update -y
+                #echo 'deb http://download.opensuse.org/repositories/home:/cabelo/xUbuntu_20.04/ /' | tee /etc/apt/sources.list.d/home:cabelo.list
+                #curl -fsSL https://download.opensuse.org/repositories/home:cabelo/xUbuntu_20.04/Release.key |gpg --dearmor | tee /etc/apt/trusted.gpg.d/home_cabelo.gpg > /dev/null
+                #apt update -y
+                #apt install -y owasp-zap awscli 
+                #apt install -y openjdk-11-jdk
+                echo "Install Stage completed"
+                '''
+                }
+            }
+        }
+        
+        stage('build'){
+            steps {
+                container('docker') {
+                sh '''
+                docker run -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py -t http://54.213.206.47:8000 -g gen.conf -r testreport.html
+                '''
+                }
+            }
+        }
+        
+        stage('post') {
+        steps {
+            archiveArtifacts artifacts: '**/*.json', onlyIfSuccessful: true
+        }
+    }
+    }
+}
+
+
+
+stages {
+        stage('ZAP Scan') {
+            steps {
+                container('docker'){
+                sh 'docker run --rm -t owasp/zap2docker-stable zap-baseline.py -t http://54.213.206.47:8000 -g gen.conf -r report.html'
+                archiveArtifacts artifacts: 'report.html'
+                }
+            }
+        }
+    }
+}
+
+
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: shell
+    image: ubuntu
+    command:
+    - sleep
+    args:
+    - infinity
+        '''
+    }
+  }
+    
+    stages {
+        stage('OWASP ZAP Test') {
+            steps {
+                container('shell'){
+                // download the latest version of OWASP ZAP
+                sh 'wget https://github.com/zaproxy/zaproxy/releases/latest/download/ZAP_2.10.0_Core.zip'
+                sh 'unzip ZAP_2.10.0_Core.zip'
+                
+                // start OWASP ZAP in headless mode
+                sh './zap.sh -daemon'
+                
+                // run the OWASP ZAP spider on your application
+                sh './zap.sh -cmd -session mysession -crawlersimple http://54.213.206.47:8000 -r testreport.html'
+                
+                // run the OWASP ZAP active scan on your application
+                sh './zap.sh -cmd -session mysession -active scan -r testreport.html'
+                }
+            }
+        }
+        
+        stage('Publish Results') {
+            steps {
+                archiveArtifacts artifacts: '**/*.html', onlyIfSuccessful: true
+            }
+        }
+    }
+}
+
+
+pipeline {
+    agent any
+    
+    stages {
+        stage('Security Test') {
+            steps {
+                // Start OWASP ZAP Docker container
+                sh "docker run -d -p 8080:8080 -v ${pwd}:/zap/wrk/:rw owasp/zap2docker-stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true"
+                
+                // Wait for OWASP ZAP to start
+                sh "sleep 10"
+                
+                // Perform security scan with ZAP
+                sh "docker run -v ${pwd}:/zap/wrk/:rw owasp/zap2docker-stable zap.sh -cmd -quickurl <YOUR_APPLICATION_URL> -quickprogress -config api.disablekey=true -config spider.maxDuration=0"
+                
+                // Save ZAP report
+                sh "docker run -v ${pwd}:/zap/wrk/:rw owasp/zap2docker-stable zap.sh -cmd -save /zap/wrk/zap-report.html"
+                archiveArtifacts 'zap-report.html'
+            }
+            
+        }
+        
+    }
+}
+
+
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: shell
+    image: owasp/zap2docker-stable
+    command:
+    - sleep
+    args:
+    - 10000
+    volumeMounts:
+      - mountPath: /zap/wrk
+        name: zap
+  restartPolicy: Never
+  volumes:
+  - name: zap
+    hostPath:
+      path: /zap/wrk
+        '''
+    }
+  }
+    stages {
+        stage('install') {
+            steps{
+                container('shell') {
+                sh '''
+                #apt update -y
+                #echo 'deb http://download.opensuse.org/repositories/home:/cabelo/xUbuntu_20.04/ /' | tee /etc/apt/sources.list.d/home:cabelo.list
+                #curl -fsSL https://download.opensuse.org/repositories/home:cabelo/xUbuntu_20.04/Release.key |gpg --dearmor | tee /etc/apt/trusted.gpg.d/home_cabelo.gpg > /dev/null
+                #apt update -y
+                #apt install -y owasp-zap awscli 
+                #apt install -y openjdk-11-jdk
+                echo "Install Stage completed"
+                '''
+                }
+            }
+        }
+        
+        stage('build'){
+            steps {
+                container('shell') {
+                sh '''
+                zap.sh -cmd -quickurl http://54.213.206.47:8000 -quickprogress -quickout zap_report.html
+                 '''
+                }
+            }
+        }
+        
+        stage('post') {
+        steps {
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: true, reportDir: '', reportFiles: 'zap_report.html', reportName: 'OWASP ZAP Report'])
+        }
+    }
+    }
+}

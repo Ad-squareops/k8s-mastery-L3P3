@@ -1,3 +1,5 @@
+# for generating output in json
+
 pipeline {
   agent {
     kubernetes {
@@ -51,8 +53,7 @@ spec:
 }
 
 
-
-
+# for generating output in html
 
 pipeline {
   agent {
@@ -68,14 +69,6 @@ spec:
     - sleep
     args:
     - 10000
-    volumeMounts:
-      - mountPath: /zap/wrk
-        name: zap
-  restartPolicy: Never
-  volumes:
-  - name: zap
-    hostPath:
-      path: /zap/wrk
         '''
     }
   }
@@ -84,12 +77,6 @@ spec:
             steps{
                 container('shell') {
                 sh '''
-                #apt update -y
-                #echo 'deb http://download.opensuse.org/repositories/home:/cabelo/xUbuntu_20.04/ /' | tee /etc/apt/sources.list.d/home:cabelo.list
-                #curl -fsSL https://download.opensuse.org/repositories/home:cabelo/xUbuntu_20.04/Release.key |gpg --dearmor | tee /etc/apt/trusted.gpg.d/home_cabelo.gpg > /dev/null
-                #apt update -y
-                #apt install -y owasp-zap awscli 
-                #apt install -y openjdk-11-jdk
                 echo "Install Stage completed"
                 '''
                 }
@@ -100,17 +87,17 @@ spec:
             steps {
                 container('shell') {
                 sh '''
-                zap.sh -cmd -quickurl http://54.213.206.47:8000 -quickprogress -quickout zap_report.html
+                zap.sh -cmd -quickurl http://35.92.220.93:8000 -quickprogress -quickout ./zap_report.html
+                #chmod 777 -R /zap/wrk
+                #zap-baseline.py -t http://35.92.220.93:8000 -g gen.conf -r testreport.html
+                cd /zap/
+                ls -l
+                cp /zap/zap_report.html ${WORKSPACE}
                  '''
+                archiveArtifacts artifacts: 'zap_report.html'
                 }
             }
         }
-        
-        stage('post') {
-        steps {
-            publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: true, reportDir: '', reportFiles: 'zap_report.html', reportName: 'OWASP ZAP Report'])
-        }
-    }
     }
 }
 

@@ -12,14 +12,6 @@ spec:
     - sleep
     args:
     - 10000
-    volumeMounts:
-      - mountPath: /zap/wrk
-        name: zap
-  restartPolicy: Never
-  volumes:
-  - name: zap
-    hostPath:
-      path: /zap/wrk
         '''
     }
   }
@@ -28,12 +20,6 @@ spec:
             steps{
                 container('shell') {
                 sh '''
-                #apt update -y
-                #echo 'deb http://download.opensuse.org/repositories/home:/cabelo/xUbuntu_20.04/ /' | tee /etc/apt/sources.list.d/home:cabelo.list
-                #curl -fsSL https://download.opensuse.org/repositories/home:cabelo/xUbuntu_20.04/Release.key |gpg --dearmor | tee /etc/apt/trusted.gpg.d/home_cabelo.gpg > /dev/null
-                #apt update -y
-                #apt install -y owasp-zap awscli 
-                #apt install -y openjdk-11-jdk
                 echo "Install Stage completed"
                 '''
                 }
@@ -44,24 +30,23 @@ spec:
             steps {
                 container('shell') {
                 sh '''
-                zap.sh -cmd -quickurl http://54.213.206.47:8000 -quickprogress -quickout ~/owasp-scan-report.json
-                #zap-full-scan.py -t http://54.213.206.47:8000 -g gen.conf -r testreport.json
-                mv ~/owasp-scan-report.json ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json
-                #aws s3 cp ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json s3://adi-report/
-                medium_alert=$( grep -v "(Medium)" ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json | sed -n /Medium/p | wc -l )
-                high_alert=$( grep -v "(High)" ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json | sed -n /High/p | wc -l )
-                echo HighAlert $high_alert
-                echo MediumAlert $medium_alert
+                zap.sh -cmd -quickurl http://35.92.220.93:8000 -quickprogress -quickout ./owasp-scan-report.json
+                #zap-full-scan.py -t http://35.92.220.93:8000 -g gen.conf -r testreport.json
+                #mv ~/owasp-scan-report.json ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json
+                #medium_alert=$( grep -v "(Medium)" ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json | sed -n /Medium/p | wc -l )
+                #high_alert=$( grep -v "(High)" ~/owasp-scan-report`date +%d.%m.%Y-%H.%M`.json | sed -n /High/p | wc -l )
+                #echo HighAlert $high_alert
+                #echo MediumAlert $medium_alert
+                cd /zap/
+                ls -l
+                cp /zap/owasp-scan-report.json ${WORKSPACE}
+                #archiveArtifacts 'owasp-scan-report.json'
                  '''
+                archiveArtifacts artifacts: 'owasp-scan-report.json'
+                
                 }
             }
         }
-        
-        stage('post') {
-        steps {
-            archiveArtifacts artifacts: '*.json', onlyIfSuccessful: true
-        }
-    }
     }
 }
 

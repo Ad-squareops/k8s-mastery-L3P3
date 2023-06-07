@@ -1,0 +1,91 @@
+pipeline {
+    agent any
+    
+    environment {
+        AWS_Credentials = credentials('AWS_Credentials')
+    }
+
+  stages{
+        stage('Check Directory') {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'GitHubCred')]) {
+                script {
+                    
+                    if (fileExists('terraform-examples-microservice')) {
+                        // Directory exists
+                        echo "Directory exists"
+                    } else {
+                        // Directory does not exist
+                        sh '''
+                        echo "Directory does not exist"
+                        git clone https://github.com/Ad-squareops/terraform-examples-microservice.git
+                        '''
+                    }
+                }
+            } 
+        }
+    }
+
+
+    stage('Go to repo'){
+            steps{
+
+                withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'AWS_Credentials',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                       ]]){
+        
+                    script{
+                        echo "going into directory"
+                        //withCredentials([sshUserPrivateKey(credentialsId: 'svn-squareops-ssh', keyFileVariable: 'SSH_KEY')]) {
+                        sh  '''
+                        cd terraform-examples-microservice/apac/mum/dev/00-base/
+                        whoami
+                        terraform init -reconfigure
+                        #terraform plan
+                        terraform apply --auto-approve
+
+                        cd ..
+                        cd 01-network/
+                        terraform init 
+                        #terraform plan
+                        terraform apply --auto-approve
+                        
+                        cd ..
+                        cd 02-eks/
+                        terraform init 
+                        #terraform plan
+                        terraform apply --auto-approve
+                        
+                        cd ..
+                        cd 02-eks-bootstrap/
+                        terraform init 
+                        #terraform plan
+                        terraform apply --auto-approve
+                        
+                        cd ..
+                        cd 03-management-services/
+                        terraform init 
+                        #terraform plan
+                        terraform apply --auto-approve
+                        terraform output > output.txt
+                        cp output.txt ${WORKSPACE}
+                        
+                        cd ..
+                        cd 04-data-sources/
+                        terraform init 
+                        #terraform plan
+                        terraform apply --auto-approve
+                        
+                        '''
+                        
+                        def terraformOutput = readFile(file: "/var/lib/jenkins/workspace/daily-cluster/output.txt").trim()
+                        slackSend(channel: "skaf-v1", message: "${terraformOutput}" )
+                    }  
+              }  }
+            }  
+        }
+  }
+//}
